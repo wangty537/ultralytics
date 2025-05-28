@@ -121,7 +121,7 @@ def visualize_random_image_with_bbox(image_dir, label_dir, class_names=None, idx
 
 if __name__ == '__main__':
     # 用户指定的目录
-    base_data_dir = r'F:\allcode\ultralytics\dataset\train'
+    base_data_dir = r'F:\allcode\ultralytics\datasets\qiyuan\train'
     image_dir = os.path.join(base_data_dir, 'images')
     label_dir = os.path.join(base_data_dir, 'labels')
 

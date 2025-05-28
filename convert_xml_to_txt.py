@@ -89,8 +89,8 @@ if __name__ == '__main__':
     # 设置 XML 文件所在的目录和 TXT 文件要保存的目录
     # 注意：用户提供的路径是 F:\allcode\ultralytics\dataset\train\labels
     # 我们将 TXT 文件也保存在同一个目录下，或者可以指定一个新的目录
-    xml_input_dir = r'F:\allcode\ultralytics\dataset\train\labels'
-    txt_output_dir = r'F:\allcode\ultralytics\dataset\train\labels' # 或者指定一个新的输出目录，例如 r'F:\allcode\ultralytics\dataset\train\labels_txt'
+    xml_input_dir = r'F:\allcode\ultralytics\datasets\qiyuan\train\labels'
+    txt_output_dir = r'F:\allcode\ultralytics\datasets\qiyuan\train\labels' # 或者指定一个新的输出目录，例如 r'F:\allcode\ultralytics\dataset\train\labels_txt'
     
     # 如果输出目录与输入目录相同，并且希望在原XML旁边生成TXT，这是可以的。
     # 如果希望输出到新的子目录，例如 'labels_yolo'，可以这样设置：

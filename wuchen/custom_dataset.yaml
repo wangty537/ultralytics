@@ -1,0 +1,22 @@
+# Custom dataset configuration for YOLO training
+# Dataset paths (relative to this config file)
+path: datasets/train_coco8  # dataset root dir
+train: images/train  # train images (relative to 'path')
+val: images/val    # val images (relative to 'path')
+test: images/test    # test images (relative to 'path')
+
+# Classes
+names:
+  0: car
+  1: truck
+  2: bus
+  3: person
+  4: van
+  5: motor
+  6: bicycle
+  7: ship
+  8: tricycle
+  9: plane
+
+# Number of classes
+nc: 10 

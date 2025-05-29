@@ -81,19 +81,49 @@ class DFLoss(nn.Module):
     def __init__(self, reg_max=16) -> None:
         """Initialize the DFL module with regularization maximum."""
         super().__init__()
+        # 定义最大的正则化值，即离散化的区间数量
         self.reg_max = reg_max
 
     def __call__(self, pred_dist, target):
         """Return sum of left and right DFL losses from https://ieeexplore.ieee.org/document/9792391."""
+        # pred_dist: 预测的分布，形状为 (batch_size, num_anchors, reg_max)
+        # target: 目标值，形状为 (batch_size, num_anchors)
+        
+        # 将目标值限制在 [0, reg_max - 1 - 0.01] 范围内，避免取到 reg_max - 1 这个值
+        # target 形状不变，仍为 (batch_size, num_anchors)
         target = target.clamp_(0, self.reg_max - 1 - 0.01)
+        
+        # 计算目标值的左相邻离散点，将目标值转换为长整型
+        # tl 形状为 (batch_size, num_anchors)
         tl = target.long()  # target left
+        
+        # 计算目标值的右相邻离散点，即左相邻离散点加 1
+        # tr 形状为 (batch_size, num_anchors)
         tr = tl + 1  # target right
+        
+        # 计算左相邻离散点的权重，权重为右相邻离散点与目标值的差值
+        # wl 形状为 (batch_size, num_anchors)
         wl = tr - target  # weight left
+        
+        # 计算右相邻离散点的权重，权重为 1 减去左相邻离散点的权重
+        # wr 形状为 (batch_size, num_anchors)
         wr = 1 - wl  # weight right
-        return (
-            F.cross_entropy(pred_dist, tl.view(-1), reduction="none").view(tl.shape) * wl
-            + F.cross_entropy(pred_dist, tr.view(-1), reduction="none").view(tl.shape) * wr
-        ).mean(-1, keepdim=True)
+        
+        # 计算左相邻离散点的交叉熵损失，reduction="none" 表示不进行损失聚合
+        # F.cross_entropy(pred_dist, tl.view(-1), reduction="none") 形状为 (batch_size * num_anchors,)
+        # .view(tl.shape) 后形状变为 (batch_size, num_anchors)
+        # 乘以左相邻离散点的权重 wl
+        left_loss = F.cross_entropy(pred_dist, tl.view(-1), reduction="none").view(tl.shape) * wl
+        
+        # 计算右相邻离散点的交叉熵损失，reduction="none" 表示不进行损失聚合
+        # F.cross_entropy(pred_dist, tr.view(-1), reduction="none") 形状为 (batch_size * num_anchors,)
+        # .view(tl.shape) 后形状变为 (batch_size, num_anchors)
+        # 乘以右相邻离散点的权重 wr
+        right_loss = F.cross_entropy(pred_dist, tr.view(-1), reduction="none").view(tl.shape) * wr
+        
+        # 将左右相邻离散点的损失相加，然后在最后一个维度上求均值，并保持维度
+        # 最终返回的损失形状为 (batch_size, num_anchors, 1)
+        return (left_loss + right_loss).mean(-1, keepdim=True)
 
 
 class BboxLoss(nn.Module):
@@ -112,7 +142,7 @@ class BboxLoss(nn.Module):
 
         # DFL loss
         if self.dfl_loss:
-            target_ltrb = bbox2dist(anchor_points, target_bboxes, self.dfl_loss.reg_max - 1)
+            target_ltrb = bbox2dist(anchor_points, target_bboxes, self.dfl_loss.reg_max - 1)# 转换为偏移量
             loss_dfl = self.dfl_loss(pred_dist[fg_mask].view(-1, self.dfl_loss.reg_max), target_ltrb[fg_mask]) * weight
             loss_dfl = loss_dfl.sum() / target_scores_sum
         else:
@@ -188,18 +218,22 @@ class v8DetectionLoss:
     def preprocess(self, targets, batch_size, scale_tensor):
         """Preprocess targets by converting to tensor format and scaling coordinates."""
         nl, ne = targets.shape
-        if nl == 0:
+        if nl == 0: # 若为 0，意味着当前批次的图像里没有目标对象。 输入目标标签数量为 0 的特殊情况，创建一个全零张量作为输出，保证后续的损失计算流程能正常运行。
             out = torch.zeros(batch_size, 0, ne - 1, device=self.device)
         else:
             i = targets[:, 0]  # image index
-            _, counts = i.unique(return_counts=True)
+            _, counts = i.unique(return_counts=True) # 统计每个图像的目标数量
             counts = counts.to(dtype=torch.int32)
+
+            # batch_size 是当前批次中的图像数量。
+            # counts.max() 是所有图像中目标数量的最大值，即这个维度的大小要能容纳单张图像中最多的目标数。
+            # ne - 1 是每个目标的属性数量，ne 是 targets 张量的列数，减去 1 是因为去掉了图像索引列。
             out = torch.zeros(batch_size, counts.max(), ne - 1, device=self.device)
             for j in range(batch_size):
-                matches = i == j
-                if n := matches.sum():
+                matches = i == j # 标记出 i 中等于当前图像索引 j 的元素位置
+                if n := matches.sum(): # 计算 matches 中 True 的数量，即当前图像中目标的数量 n。如果 n 大于 0，则执行下面的赋值操作。
                     out[j, :n] = targets[matches, 1:]
-            out[..., 1:5] = xywh2xyxy(out[..., 1:5].mul_(scale_tensor))
+            out[..., 1:5] = xywh2xyxy(out[..., 1:5].mul_(scale_tensor)) # 将目标框坐标从归一化形式转换为绝对坐标形式。
         return out
 
     def bbox_decode(self, anchor_points, pred_dist):
@@ -213,31 +247,66 @@ class v8DetectionLoss:
 
     def __call__(self, preds, batch):
         """Calculate the sum of the loss for box, cls and dfl multiplied by batch size."""
+        # 初始化一个长度为 3 的零张量，分别用于存储边界框损失、分类损失和 DFL 损失
+        # shape: (3,)
         loss = torch.zeros(3, device=self.device)  # box, cls, dfl
+        # 若 preds 是元组，取第二个元素作为特征图；否则直接使用 preds
+        # shape: 若 preds 是元组，feats 形状同 preds[1]；否则同 preds
         feats = preds[1] if isinstance(preds, tuple) else preds
+        # 将特征图列表中的每个元素重塑为 (batch_size, self.no, -1) 形状，然后沿维度 2 拼接
+        # 再按维度 1 分割成预测分布和预测分数两部分
+        # pred_distri shape: (batch_size, self.reg_max * 4, num_anchors)
+        # pred_scores shape: (batch_size, self.nc, num_anchors)
         pred_distri, pred_scores = torch.cat([xi.view(feats[0].shape[0], self.no, -1) for xi in feats], 2).split(
             (self.reg_max * 4, self.nc), 1
         )
 
+        # 交换 pred_scores 的维度，使维度顺序变为 (batch_size, num_anchors, self.nc)，并确保内存连续
+        # shape: (batch_size, num_anchors, self.nc)
         pred_scores = pred_scores.permute(0, 2, 1).contiguous()
+        # 交换 pred_distri 的维度，使维度顺序变为 (batch_size, num_anchors, self.reg_max * 4)，并确保内存连续
+        # shape: (batch_size, num_anchors, self.reg_max * 4)
         pred_distri = pred_distri.permute(0, 2, 1).contiguous()
 
+        # 获取 pred_scores 的数据类型
         dtype = pred_scores.dtype
+        # 获取批次大小
+        # shape: 标量
         batch_size = pred_scores.shape[0]
+        # 计算图像尺寸，将特征图的高度和宽度乘以步长
+        # shape: (2,)
         imgsz = torch.tensor(feats[0].shape[2:], device=self.device, dtype=dtype) * self.stride[0]  # image size (h,w)
+        # 生成锚点和对应的步长张量
+        # anchor_points shape: (num_anchors=80*80+40*40+20*20, 2)
+        # stride_tensor shape: (num_anchors,1)
         anchor_points, stride_tensor = make_anchors(feats, self.stride, 0.5)
 
         # Targets
-        targets = torch.cat((batch["batch_idx"].view(-1, 1), batch["cls"].view(-1, 1), batch["bboxes"]), 1)
+        # 将批次索引、类别标签和边界框信息在维度 1 上拼接成一个张量
+        # shape: (num_targets, 6)，其中 6 = 1（batch_idx）+ 1（cls）+ 4（bboxes）  # batch["batch_idx"] 代表每个目标标签所属图像在当前批次中的索引
+        targets = torch.cat((batch["batch_idx"].view(-1, 1), batch["cls"].view(-1, 1), batch["bboxes"]), 1) # 该bbox所属的图像，所属的类别，具体边界框坐标
+        # 对目标数据进行预处理，包括转换设备和缩放坐标
+        # shape: (batch_size, max_num_targets_per_image, 5)，其中 5 = 1（cls）+ 4（bboxes）
         targets = self.preprocess(targets.to(self.device), batch_size, scale_tensor=imgsz[[1, 0, 1, 0]])
+        # 将预处理后的目标数据按维度 2 分割成真实标签和真实边界框两部分
+        # gt_labels shape: (batch_size, max_num_targets_per_image, 1)
+        # gt_bboxes shape: (batch_size, max_num_targets_per_image, 4)
         gt_labels, gt_bboxes = targets.split((1, 4), 2)  # cls, xyxy
+        # 生成一个掩码，标记哪些真实边界框是有效的（即框的坐标和大于 0）
+        # shape: (batch_size, max_num_targets_per_image, 1)
         mask_gt = gt_bboxes.sum(2, keepdim=True).gt_(0.0)
 
         # Pboxes
+        # 根据锚点和预测分布解码出预测的边界框
+        # shape: (batch_size, num_anchors, 4)
         pred_bboxes = self.bbox_decode(anchor_points, pred_distri)  # xyxy, (b, h*w, 4)
         # dfl_conf = pred_distri.view(batch_size, -1, 4, self.reg_max).detach().softmax(-1)
         # dfl_conf = (dfl_conf.amax(-1).mean(-1) + dfl_conf.amax(-1).amin(-1)) / 2
 
+        # 使用分配器将预测结果与真实标签进行匹配，得到目标边界框、目标分数和前景掩码等
+        # target_bboxes shape: (batch_size, num_anchors, 4)
+        # target_scores shape: (batch_size, num_anchors, self.nc)
+        # fg_mask shape: (batch_size, num_anchors)
         _, target_bboxes, target_scores, fg_mask, _ = self.assigner(
             # pred_scores.detach().sigmoid() * 0.8 + dfl_conf.unsqueeze(-1) * 0.2,
             pred_scores.detach().sigmoid(),
@@ -247,24 +316,49 @@ class v8DetectionLoss:
             gt_bboxes,
             mask_gt,
         )
+        """
+        fg_mask 张量的形状通常为 (batch_size, num_anchors)，其中 batch_size 是当前批次的图像数量，num_anchors 是所有检测层的锚点总数。张量中的每个元素是一个布尔值：
 
+        True：表示对应的锚点被分配给了某个前景对象，即该锚点负责预测一个目标物体。
+        False：表示对应的锚点属于背景，不负责预测目标物体。
+        """
+
+        # 计算目标分数的总和，确保最小值为 1，避免除零错误
+        # shape: 标量
         target_scores_sum = max(target_scores.sum(), 1)
 
         # Cls loss
+        # 计算分类损失，使用二元交叉熵损失函数，将损失总和除以目标分数总和进行归一化
         # loss[1] = self.varifocal_loss(pred_scores, target_scores, target_labels) / target_scores_sum  # VFL way
+        # shape: 标量
         loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE
 
         # Bbox loss
+        # 若存在前景掩码（即存在正样本），则计算边界框损失和 DFL 损失
         if fg_mask.sum():
+            # 将目标边界框除以步长张量进行缩放
+            # shape: (batch_size, num_anchors, 4)
             target_bboxes /= stride_tensor
+            # 计算边界框损失和 DFL 损失
+            # loss[0] shape: 标量
+            # loss[2] shape: 标量
             loss[0], loss[2] = self.bbox_loss(
                 pred_distri, pred_bboxes, anchor_points, target_bboxes, target_scores, target_scores_sum, fg_mask
             )
 
+        # 将边界框损失乘以对应的增益系数
+        # shape: 标量
         loss[0] *= self.hyp.box  # box gain
+        # 将分类损失乘以对应的增益系数
+        # shape: 标量
         loss[1] *= self.hyp.cls  # cls gain
+        # 将 DFL 损失乘以对应的增益系数
+        # shape: 标量
         loss[2] *= self.hyp.dfl  # dfl gain
 
+        # 将总损失乘以批次大小，并返回分离梯度的损失
+        # loss * batch_size shape: (3,)
+        # loss.detach() shape: (3,)
         return loss * batch_size, loss.detach()  # loss(box, cls, dfl)
 
 
@@ -613,7 +707,8 @@ class v8ClassificationLoss:
         """Compute the classification loss between predictions and true labels."""
         preds = preds[1] if isinstance(preds, (list, tuple)) else preds
         loss = F.cross_entropy(preds, batch["cls"], reduction="mean")
-        return loss, loss.detach()
+        loss_items = loss.detach()
+        return loss, loss_items
 
 
 class v8OBBLoss(v8DetectionLoss):

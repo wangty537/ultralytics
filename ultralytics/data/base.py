@@ -119,7 +119,7 @@ class BaseDataset(Dataset):
         self.pad = pad
         if self.rect:
             assert self.batch_size is not None
-            self.set_rectangle()
+            self.set_rectangle() # 按长宽比排序
 
         # Buffer thread for mosaic images
         self.buffer = []  # buffer size = batch size
@@ -347,12 +347,16 @@ class BaseDataset(Dataset):
         return True
 
     def set_rectangle(self):
-        """Set the shape of bounding boxes for YOLO detections as rectangles."""
+        """Set the shape of bounding boxes for YOLO detections as rectangles.
+        使得同一批次内的图像具有相似的宽高比，减少了图像缩放时的填充区域，提高了训练效率。
+        其实就是所有图像按照高宽比排序，然后分成若干个batch，每个batch内的图像具有相似的高宽比。
+        这样做的好处是可以减少图像缩放时的填充区域，提高训练效率。
+        """
         bi = np.floor(np.arange(self.ni) / self.batch_size).astype(int)  # batch index
         nb = bi[-1] + 1  # number of batches
 
         s = np.array([x.pop("shape") for x in self.labels])  # hw
-        ar = s[:, 0] / s[:, 1]  # aspect ratio
+        ar = s[:, 0] / s[:, 1]  # aspect ratio # 所有图像的长宽比
         irect = ar.argsort()
         self.im_files = [self.im_files[i] for i in irect]
         self.labels = [self.labels[i] for i in irect]
@@ -387,7 +391,7 @@ class BaseDataset(Dataset):
         """
         label = deepcopy(self.labels[index])  # requires deepcopy() https://github.com/ultralytics/ultralytics/pull/1948
         label.pop("shape", None)  # shape is for rect, remove it
-        label["img"], label["ori_shape"], label["resized_shape"] = self.load_image(index)
+        label["img"], label["ori_shape"], label["resized_shape"] = self.load_image(index) # load image有一个参数rect_mode=True, 最长边resize到imgsz，短边等比例resize。 如果rect_mode=False，resize到imgsz*imgsz
         label["ratio_pad"] = (
             label["resized_shape"][0] / label["ori_shape"][0],
             label["resized_shape"][1] / label["ori_shape"][1],

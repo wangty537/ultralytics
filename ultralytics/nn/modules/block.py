@@ -58,6 +58,8 @@ class DFL(nn.Module):
     Integral module of Distribution Focal Loss (DFL).
 
     Proposed in Generalized Focal Loss https://ieeexplore.ieee.org/document/9792391
+    其实就是将4个坐标的概率值转换为实际的偏移值
+    偏移值的具体数值:x = torch.arange(c1, dtype=torch.float)， 和具体概率加权，得到最终的实际偏移值
     """
 
     def __init__(self, c1=16):
@@ -76,7 +78,11 @@ class DFL(nn.Module):
 
 
 class Proto(nn.Module):
-    """Ultralytics YOLO models mask Proto module for segmentation models."""
+    """Ultralytics YOLO models mask Proto module for segmentation models.
+    适用于语义分割
+    主要是特征提取和上采样
+    最终输出原型掩码 proto masks, 是一组具有不同语义特征的基础掩码，数量通常是固定，c2=32
+    """
 
     def __init__(self, c1, c_=256, c2=32):
         """
@@ -101,7 +107,7 @@ class Proto(nn.Module):
 class HGStem(nn.Module):
     """
     StemBlock of PPHGNetV2 with 5 convolutions and one maxpool2d.
-
+    Stem 块通常位于模型的起始部分，主要作用是对输入图像进行初步的特征提取和下采样，为后续的网络层提供更具表达力的特征。
     https://github.com/PaddlePaddle/PaddleDetection/blob/develop/ppdet/modeling/backbones/hgnet_v2.py
     """
 
@@ -136,11 +142,13 @@ class HGStem(nn.Module):
         return x
 
 
-class HGBlock(nn.Module):
+class HGBlock(nn.Module):   
     """
     HG_Block of PPHGNetV2 with 2 convolutions and LightConv.
 
     https://github.com/PaddlePaddle/PaddleDetection/blob/develop/ppdet/modeling/backbones/hgnet_v2.py
+
+    多个卷积串联 ，然后把每个卷积块的输出拼接在一起，最后通过squeeze conv + excitation conv
     """
 
     def __init__(self, c1, cm, c2, k=3, n=6, lightconv=False, shortcut=False, act=nn.ReLU()):
@@ -173,7 +181,9 @@ class HGBlock(nn.Module):
 
 
 class SPP(nn.Module):
-    """Spatial Pyramid Pooling (SPP) layer https://arxiv.org/abs/1406.4729."""
+    """Spatial Pyramid Pooling (SPP) layer https://arxiv.org/abs/1406.4729.
+    金字塔pooling
+    """
 
     def __init__(self, c1, c2, k=(5, 9, 13)):
         """
@@ -197,7 +207,8 @@ class SPP(nn.Module):
 
 
 class SPPF(nn.Module):
-    """Spatial Pyramid Pooling - Fast (SPPF) layer for YOLOv5 by Glenn Jocher."""
+    """Spatial Pyramid Pooling - Fast (SPPF) layer for YOLOv5 by Glenn Jocher.
+    快速金字塔pooling"""
 
     def __init__(self, c1, c2, k=5):
         """
@@ -225,7 +236,9 @@ class SPPF(nn.Module):
 
 
 class C1(nn.Module):
-    """CSP Bottleneck with 1 convolution."""
+    """CSP Bottleneck with 1 convolution.
+    1x1 , 3x3
+    """
 
     def __init__(self, c1, c2, n=1):
         """
@@ -456,7 +469,7 @@ class Bottleneck(nn.Module):
     def __init__(self, c1, c2, shortcut=True, g=1, k=(3, 3), e=0.5):
         """
         Initialize a standard bottleneck module.
-
+        先3x3减少channel,再3x3处理
         Args:
             c1 (int): Input channels.
             c2 (int): Output channels.

@@ -19,7 +19,22 @@ from .utils import bias_init_with_prob, linear_init
 
 __all__ = "Detect", "Segment", "Pose", "Classify", "OBB", "RTDETRDecoder", "v10Detect", "YOLOEDetect", "YOLOESegment"
 
+"""
+在训练模式下,Detect 类的 forward 方法会直接返回特征图 x。特征图 x 是一个列表,列表中的每个元素对应一个检测层的输出,其形状为 (batch_size, self.no, h, w)。其中：
 
+batch_size：批次大小,即一次处理的图像数量。
+self.no：每个锚点的输出数量,计算公式为 self.nc + self.reg_max * 4,self.nc 是类别数量,self.reg_max 是 DFL 通道数。
+h 和 w：特征图的高度和宽度。
+
+
+在推理模式下,Detect 类的 _inference 方法会对特征图进行解码和后处理,最终输出张量 y,其形状为 (batch_size, 4 + self.nc, num_anchors)。其中：
+
+batch_size：批次大小。
+4：边界框的坐标信息（x1, y1, x2, y2）。
+self.nc：类别数量。
+num_anchors：所有检测层的锚点总数。
+
+"""
 class Detect(nn.Module):
     """YOLO Detect head for detection models."""
 
@@ -42,7 +57,7 @@ class Detect(nn.Module):
         self.reg_max = 16  # DFL channels (ch[0] // 16 to scale 4/8/12/16/20 for n/s/m/l/x)
         self.no = nc + self.reg_max * 4  # number of outputs per anchor
         self.stride = torch.zeros(self.nl)  # strides computed during build
-        c2, c3 = max((16, ch[0] // 4, self.reg_max * 4)), max(ch[0], min(self.nc, 100))  # channels
+        c2, c3 = max((16, ch[0] // 4, self.reg_max * 4)), max(ch[0], min(self.nc, 100))  # channels 64, 80
         self.cv2 = nn.ModuleList(
             nn.Sequential(Conv(x, c2, 3), Conv(c2, c2, 3), nn.Conv2d(c2, 4 * self.reg_max, 1)) for x in ch
         )
@@ -70,7 +85,7 @@ class Detect(nn.Module):
             return self.forward_end2end(x)
 
         for i in range(self.nl):
-            x[i] = torch.cat((self.cv2[i](x[i]), self.cv3[i](x[i])), 1)
+            x[i] = torch.cat((self.cv2[i](x[i]), self.cv3[i](x[i])), 1) # channel: 4 * self.reg_max + self.nc
         if self.training:  # Training path
             return x
         y = self._inference(x)
@@ -116,14 +131,14 @@ class Detect(nn.Module):
         shape = x[0].shape  # BCHW
         x_cat = torch.cat([xi.view(shape[0], self.no, -1) for xi in x], 2)
         if self.format != "imx" and (self.dynamic or self.shape != shape):
-            self.anchors, self.strides = (x.transpose(0, 1) for x in make_anchors(x, self.stride, 0.5))
+            self.anchors, self.strides = (x.transpose(0, 1) for x in make_anchors(x, self.stride, 0.5)) # 2xN, 1xN
             self.shape = shape
 
         if self.export and self.format in {"saved_model", "pb", "tflite", "edgetpu", "tfjs"}:  # avoid TF FlexSplitV ops
             box = x_cat[:, : self.reg_max * 4]
             cls = x_cat[:, self.reg_max * 4 :]
         else:
-            box, cls = x_cat.split((self.reg_max * 4, self.nc), 1)
+            box, cls = x_cat.split((self.reg_max * 4, self.nc), 1) # batch_size, self.reg_max * 4, num_anchors, batch_size, self.nc, num_anchors
 
         if self.export and self.format in {"tflite", "edgetpu"}:
             # Precompute normalization factor to increase numerical stability
@@ -139,9 +154,9 @@ class Detect(nn.Module):
             )
             return dbox.transpose(1, 2), cls.sigmoid().permute(0, 2, 1)
         else:
-            dbox = self.decode_bboxes(self.dfl(box), self.anchors.unsqueeze(0)) * self.strides
+            dbox = self.decode_bboxes(self.dfl(box), self.anchors.unsqueeze(0)) * self.strides # （dfl后：batch_size, 4, num_anchors）,   （1,2,num_anchors）
 
-        return torch.cat((dbox, cls.sigmoid()), 1)
+        return torch.cat((dbox, cls.sigmoid()), 1) # batch_size, 4 + self.nc, num_anchors
 
     def bias_init(self):
         """Initialize Detect() biases, WARNING: requires stride availability."""
@@ -175,13 +190,35 @@ class Detect(nn.Module):
             (torch.Tensor): Processed predictions with shape (batch_size, min(max_det, num_anchors), 6) and last
                 dimension format [x, y, w, h, max_class_prob, class_index].
         """
+        # 获取预测结果张量的形状,分别为批量大小、锚点数量和每个锚点的预测值数量
         batch_size, anchors, _ = preds.shape  # i.e. shape(16,8400,84)
+        # 将预测结果拆分为边界框信息和类别概率信息
+        # boxes 形状为 (batch_size, num_anchors, 4),包含边界框的 [x, y, w, h] 信息
+        # scores 形状为 (batch_size, num_anchors, nc),包含每个锚点对应各个类别的概率
         boxes, scores = preds.split([4, nc], dim=-1)
+        # 找出每个锚点对应所有类别概率中的最大值,并选取前 min(max_det, anchors) 个最大概率对应的锚点索引
+        # topk 函数返回值为 (values, indices),这里只取 indices 并在最后一维添加一个维度
+        # index 形状为 (batch_size, min(max_det, anchors), 1)
         index = scores.amax(dim=-1).topk(min(max_det, anchors))[1].unsqueeze(-1)
+        # 根据上述索引,从 boxes 张量中收集对应的边界框信息
+        # index.repeat(1, 1, 4) 将索引在最后一维复制 4 次,以匹配 boxes 张量的最后一维维度
+        # boxes 形状变为 (batch_size, min(max_det, anchors), 4)
         boxes = boxes.gather(dim=1, index=index.repeat(1, 1, 4))
+        # 根据上述索引,从 scores 张量中收集对应的类别概率信息
+        # index.repeat(1, 1, nc) 将索引在最后一维复制 nc 次,以匹配 scores 张量的最后一维维度
+        # scores 形状变为 (batch_size, min(max_det, anchors), nc)
         scores = scores.gather(dim=1, index=index.repeat(1, 1, nc))
+        # 将 scores 张量在第 1 维和第 2 维上展平,然后选取前 min(max_det, anchors) 个最大概率及其索引
+        # scores 形状变为 (batch_size, min(max_det, anchors))
+        # index 形状变为 (batch_size, min(max_det, anchors))
         scores, index = scores.flatten(1).topk(min(max_det, anchors))
+        # 生成批量索引,形状为 (batch_size, 1)
         i = torch.arange(batch_size)[..., None]  # batch indices
+        # 拼接最终结果
+        # boxes[i, index // nc] 根据批量索引和类别索引获取对应的边界框信息
+        # scores[..., None] 在最后一维添加一个维度,将概率值变为列向量
+        # (index % nc)[..., None].float() 计算类别索引并在最后一维添加一个维度,转换为浮点数
+        # 最终返回的张量形状为 (batch_size, min(max_det, anchors), 6),最后一维格式为 [x, y, w, h, max_class_prob, class_index]
         return torch.cat([boxes[i, index // nc], scores[..., None], (index % nc)[..., None].float()], dim=-1)
 
 

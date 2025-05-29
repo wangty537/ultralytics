@@ -69,6 +69,7 @@ from ultralytics.nn.modules import (
     YOLOESegment,
     v10Detect,
 )
+from ultralytics.nn.modules import Conv3x3_rep, Conv3x3
 from ultralytics.utils import DEFAULT_CFG_DICT, DEFAULT_CFG_KEYS, LOGGER, YAML, colorstr, emojis
 from ultralytics.utils.checks import check_requirements, check_suffix, check_yaml
 from ultralytics.utils.loss import (
@@ -1394,6 +1395,8 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
         {
             Classify,
             Conv,
+            Conv3x3,
+            Conv3x3_rep,
             ConvTranspose,
             GhostConv,
             Bottleneck,

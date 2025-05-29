@@ -48,7 +48,10 @@ class DetectionTrainer(BaseTrainer):
         >>> trainer = DetectionTrainer(overrides=args)
         >>> trainer.train()
     """
-
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 初始化计数器
+        self.print_counter = 0
     def build_dataset(self, img_path, mode="train", batch=None):
         """
         Build YOLO Dataset for training or validation.
@@ -98,6 +101,11 @@ class DetectionTrainer(BaseTrainer):
             (dict): Preprocessed batch with normalized images.
         """
         batch["img"] = batch["img"].to(self.device, non_blocking=True).float() / 255
+         # 检查计数器是否小于 2
+        if self.print_counter < 2:
+            print("self.args.multi_scale:", self.args.multi_scale)
+            # 计数器加 1
+            self.print_counter += 1
         if self.args.multi_scale:
             imgs = batch["img"]
             sz = (

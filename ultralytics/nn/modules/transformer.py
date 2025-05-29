@@ -372,6 +372,9 @@ class LayerNorm2d(nn.Module):
         weight (nn.Parameter): Learnable scale parameter.
         bias (nn.Parameter): Learnable bias parameter.
         eps (float): Small constant for numerical stability.
+
+    按channel 求均值和方差，input shape: [N, C, H, W]
+    输出 shape: [N, C, H, W]
     """
 
     def __init__(self, num_channels, eps=1e-6):

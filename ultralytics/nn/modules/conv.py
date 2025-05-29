@@ -6,9 +6,12 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
+from .ecbsr import ECB
 
 __all__ = (
     "Conv",
+    "Conv3x3_rep",
+    "Conv3x3",
     "Conv2",
     "LightConv",
     "DWConv",
@@ -91,6 +94,122 @@ class Conv(nn.Module):
         return self.act(self.conv(x))
 
 
+class Conv3x3_rep(nn.Module): # ecb 3x3kernel, have bias
+    """
+    Standard convolution module with batch normalization and activation.
+
+    Attributes:
+        conv (nn.Conv2d): Convolutional layer.
+        bn (nn.BatchNorm2d): Batch normalization layer.
+        act (nn.Module): Activation function layer.
+        default_act (nn.Module): Default activation function (SiLU).
+    """
+
+    default_act = nn.SiLU()  # default activation
+
+    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, d=1, act=True):
+        """
+        Initialize Conv layer with given parameters.
+
+        Args:
+            c1 (int): Number of input channels.
+            c2 (int): Number of output channels.
+            k (int): Kernel size.
+            s (int): Stride.
+            p (int, optional): Padding.
+            g (int): Groups.
+            d (int): Dilation.
+            act (bool | nn.Module): Activation function.
+        """
+        super().__init__()
+        #  only for k=3, s=1, p=1, g=1, d=1
+        
+        self.conv = ECB(c1, c2, depth_multiplier=2.0, act_type='linear', with_idt=False)#nn.Conv2d(c1, c2, k, s, autopad(k, p, d), groups=g, dilation=d, bias=False)
+        self.bn = nn.BatchNorm2d(c2)
+        self.act = self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
+
+    def forward(self, x):
+        """
+        Apply convolution, batch normalization and activation to input tensor.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            (torch.Tensor): Output tensor.
+        """
+        return self.act(self.bn(self.conv(x)))
+
+    def forward_fuse(self, x):
+        """
+        Apply convolution and activation without batch normalization.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            (torch.Tensor): Output tensor.
+        """
+        return self.act(self.conv(x))
+    
+class Conv3x3(nn.Module): # ecb 3x3kernel, have bias
+    """
+    Standard convolution module with batch normalization and activation.
+
+    Attributes:
+        conv (nn.Conv2d): Convolutional layer.
+        bn (nn.BatchNorm2d): Batch normalization layer.
+        act (nn.Module): Activation function layer.
+        default_act (nn.Module): Default activation function (SiLU).
+    """
+
+    default_act = nn.SiLU()  # default activation
+
+    def __init__(self, c1, c2, k=3, s=1, p=None, g=1, d=1, act=True):
+        """
+        Initialize Conv layer with given parameters.
+
+        Args:
+            c1 (int): Number of input channels.
+            c2 (int): Number of output channels.
+            k (int): Kernel size.
+            s (int): Stride.
+            p (int, optional): Padding.
+            g (int): Groups.
+            d (int): Dilation.
+            act (bool | nn.Module): Activation function.
+        """
+        super().__init__()
+        #  only for k=3, s=1, p=1, g=1, d=1
+        
+        self.conv = nn.Conv2d(c1, c2, 3, 1, autopad(k, p, d), groups=g, dilation=d, bias=True)
+        self.bn = nn.BatchNorm2d(c2)
+        self.act = self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
+
+    def forward(self, x):
+        """
+        Apply convolution, batch normalization and activation to input tensor.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            (torch.Tensor): Output tensor.
+        """
+        return self.act(self.bn(self.conv(x)))
+
+    def forward_fuse(self, x):
+        """
+        Apply convolution and activation without batch normalization.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            (torch.Tensor): Output tensor.
+        """
+        return self.act(self.conv(x))
+    
 class Conv2(Conv):
     """
     Simplified RepConv module with Conv fusing.
@@ -144,7 +263,10 @@ class Conv2(Conv):
         return self.act(self.bn(self.conv(x)))
 
     def fuse_convs(self):
-        """Fuse parallel convolutions."""
+        """Fuse parallel convolutions. 
+        1x1 卷积核嵌入到 3x3 卷积核的中心位置，然后将两者相加，得到一个等效的 3x3 卷积核。
+        通过这种方式，将两个并行的卷积层融合为一个卷积层，减少了计算量，提高了模型推理速度。
+        """
         w = torch.zeros_like(self.conv.weight.data)
         i = [x // 2 for x in w.shape[2:]]
         w[:, :, i[0] : i[0] + 1, i[1] : i[1] + 1] = self.cv2.weight.data.clone()
@@ -206,7 +328,7 @@ class DWConv(Conv):
             d (int): Dilation.
             act (bool | nn.Module): Activation function.
         """
-        super().__init__(c1, c2, k, s, g=math.gcd(c1, c2), d=d, act=act)
+        super().__init__(c1, c2, k, s, g=math.gcd(c1, c2), d=d, act=act)#最大公约数
 
 
 class DWConvTranspose2d(nn.ConvTranspose2d):
@@ -285,6 +407,7 @@ class ConvTranspose(nn.Module):
 
 class Focus(nn.Module):
     """
+    基于减少计算量和增加特征信息的优势，Focus 模块能够在不显著降低模型性能的前提下，提升模型的训练和推理速度。
     Focus module for concentrating feature information.
 
     Slices input tensor into 4 parts and concatenates them in the channel dimension.
@@ -328,6 +451,11 @@ class Focus(nn.Module):
 
 class GhostConv(nn.Module):
     """
+    1x1 conv 
+    5x5 depconv
+    res + concat
+
+
     Ghost Convolution module.
 
     Generates more features with fewer parameters by using cheap operations.
@@ -373,6 +501,7 @@ class GhostConv(nn.Module):
 
 class RepConv(nn.Module):
     """
+    1x1, 3x3, bn三个分支融合为一个3x3卷积
     RepConv module with training and deploy modes.
 
     This module is used in RT-DETR and can fuse convolutions during inference for efficiency.

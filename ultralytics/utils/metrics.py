@@ -113,6 +113,18 @@ def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, eps=1e-7
     union = w1 * h1 + w2 * h2 - inter + eps
 
     # IoU
+    """
+    GIoU：计算最小封闭框的面积，用 IoU 减去最小封闭框面积与并集面积的差值除以最小封闭框面积。
+    DIoU：计算最小封闭框的对角线平方 c2 和两个边界框中心点距离的平方 rho2，用 IoU 减去 rho2 / c2。
+    CIoU：在 DIoU 的基础上，考虑边界框的宽高比，计算宽高比的惩罚项 v 和权重 alpha，用 IoU 减去 rho2 / c2 + v * alpha。
+    对比总结
+    指标	优化目标	                      优点	                缺点
+    IoU	    重叠区域	                   简单直观	                  无重叠时梯度为零
+    GIoU	重叠区域 + 最小封闭框	        解决无重叠问题	            对宽高比不敏感
+    DIoU	重叠区域 + 中心点距离	        加速收敛	               忽略宽高比
+    CIoU	重叠区域 + 中心点距离 + 宽高比	 综合优化，精度最高	         计算复杂
+
+    """
     iou = inter / union
     if CIoU or DIoU or GIoU:
         cw = b1_x2.maximum(b2_x2) - b1_x1.minimum(b2_x1)  # convex (smallest enclosing box) width

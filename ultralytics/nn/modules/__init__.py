@@ -16,7 +16,9 @@ Examples:
     >>> torch.onnx.export(m, x, f)
     >>> os.system(f"onnxslim {f} {f} && open {f}")  # pip install onnxslim
 """
-
+from .ecbsr import (
+    ECB,
+)
 from .block import (
     C1,
     C2,
@@ -65,6 +67,8 @@ from .conv import (
     ChannelAttention,
     Concat,
     Conv,
+    Conv3x3,
+    Conv3x3_rep,
     Conv2,
     ConvTranspose,
     DWConv,
@@ -103,7 +107,10 @@ from .transformer import (
 )
 
 __all__ = (
+    "ECB",
     "Conv",
+    "Conv3x3",
+    "Conv3x3_rep",
     "Conv2",
     "LightConv",
     "RepConv",

@@ -10,51 +10,61 @@ if __name__ == "__main__":
     print(torchvision.__version__)
     print(torch.cuda.is_available())
     model = YOLO("yolo11n.pt")
-    model.train(data=r"qiyuan.yaml", 
-                epochs=200,
-                batch=16,
-                imgsz=320,
-                workers=8,
-                device=0,
-                patience=30,
-                optimizer="Adam",
-                lr0=0.001,
-                lrf=0.01,
-                close_mosaic=20,
-                # momentum=0.937,
-                # weight_decay=0.0005,
-                # warmup_epochs=3.0,
-                # warmup_momentum=0.8,
-                # warmup_bias_lr=0.1,
-                box=0.05,
-                cls=0.5,
-                dfl=1.5,
-                multi_scale=False,
-                project="runs/train/qiyuan",
-                name="yolo11n_320",
-                resume=False,
+    #model = YOLO("/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/runs/train/qiyuan/train_yolo11n/weights/last.pt")
+    model.train(data=r"/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/ultralytics/cfg/datasets/qiyuan.yaml", 
+                # epochs=30,
+                # batch=8,
+                # imgsz=640,
+                # workers=4,
+                # device=[0],
+                # patience=10,
+                # optimizer="Adam",
+                # lr0=0.001,
+                # lrf=0.01,
+                # close_mosaic=10,
+                # # momentum=0.937,
+                # # weight_decay=0.0005,
+                # # warmup_epochs=3.0,
+                # # warmup_momentum=0.8,
+                # # warmup_bias_lr=0.1,
+                # box=7.5,
+                # cls=0.5,
+                # dfl=1.5,
+                # multi_scale=False,
+                # project="runs/train/qiyuan",
+                # name="train_yolo11m_640",
+                # resume=True,
                 
-                hsv_h=0.1,
-                hsv_s=0.7,
-                hsv_v=0.4,
-                degrees=90,
-                translate=0.1,
-                scale=0.5,
-                # shear=0,
-                # perspective=0.0,
-                flipud=0.1,
-                fliplr=0.5,
-                bgr=0.1,
-                mosaic=0.8,
-                mixup=0.5,
-                cutmix=0.5
+                # hsv_h=0.5,
+                # hsv_s=0.7,
+                # hsv_v=0.4,
+                # degrees=180,
+                # translate=0.1,
+                # scale=0.5,
+                # shear=20,
+                # perspective=0.0005,
+                # flipud=0.1,
+                # fliplr=0.5,
+                # bgr=0.1,
+                # mosaic=0.8,
+                # mixup=0.5,
+                # cutmix=0.5
                 )
                 
-                
-                
-                
+
     
-    
-    print("########################### training finished ###########################")
-    
-    model.val()
+    print('###################################################### Train Done ######################################################')
+    # Customize validation settings
+    metrics = model.val( 
+        #data="gastrointestinal.yaml",
+        imgsz=320, 
+        batch=4, 
+        # conf=0.25,          # Confidence threshold for predictions模型预测的每个目标框（bounding box）的置信度分数（通常是目标存在的概率）必须大于该阈值，才会被保留下来作为有效检测结果
+        # iou=0.6,            # iou 指的是非极大值抑制（NMS）中的 IoU 阈值，用于去除重叠度较高的冗余框。NMS 算法会对所有预测框按置信度排序，依次选出最大置信度的框，并去除与其 IoU 大于阈值的其他框。
+        device=[1],
+        half=False,          # 使用半精度浮点数进行计算，减少内存占用和计算时间
+        plots=True,         # 是否绘制验证结果图
+        project="runs/train/qiyuan",  # Project name for saving results
+        name="train_yolo11m_640_val320",
+        )
+    print('###################################################### Val Done ######################################################')

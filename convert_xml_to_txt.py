@@ -4,12 +4,19 @@ import os
 
 def convert_coordinates(size, box):
     """将 (xmin, xmax, ymin, ymax) 转换为归一化的 (x_center, y_center, width, height)"""
+    box[0] = max(0, min(box[0], size[0]))  # 确保 xmin 不小于0且不大于图像宽度
+    box[1] = max(0, min(box[1], size[0]))  # 确保 xmax 不小于0且不大于图像宽度
+    box[2] = max(0, min(box[2], size[1]))  # 确保 ymin 不小于0且不大于图像高度
+    box[3] = max(0, min(box[3], size[1]))  # 确保 ymax 不小于0且不大于图像高度
+    
+
     dw = 1.0 / size[0]  # 图像宽度
     dh = 1.0 / size[1]  # 图像高度
     x_center = (box[0] + box[1]) / 2.0 * dw
     y_center = (box[2] + box[3]) / 2.0 * dh
     width = (box[1] - box[0]) * dw
     height = (box[3] - box[2]) * dh
+    
     return (x_center, y_center, width, height)
 
 def convert_xml_to_txt(xml_dir, txt_dir):
@@ -90,7 +97,7 @@ if __name__ == '__main__':
     # 注意：用户提供的路径是 F:\allcode\ultralytics\dataset\train\labels
     # 我们将 TXT 文件也保存在同一个目录下，或者可以指定一个新的目录
     xml_input_dir = r'F:\allcode\ultralytics\datasets\qiyuan\train\labels'
-    txt_output_dir = r'F:\allcode\ultralytics\datasets\qiyuan\train\labels' # 或者指定一个新的输出目录，例如 r'F:\allcode\ultralytics\dataset\train\labels_txt'
+    txt_output_dir = xml_input_dir # 或者指定一个新的输出目录，例如 r'F:\allcode\ultralytics\dataset\train\labels_txt'
     
     # 如果输出目录与输入目录相同，并且希望在原XML旁边生成TXT，这是可以的。
     # 如果希望输出到新的子目录，例如 'labels_yolo'，可以这样设置：
@@ -115,3 +122,46 @@ if __name__ == '__main__':
 #   'ship': 7
 #   'bicycle': 8
 #   'plane': 9
+
+# testid = {0:2,1:7,2:5,3:1,4:6,5:8,6:10,7:3,8:9,9:4}
+        # test
+        # {
+        #     "id": 1,
+        #     "name": "person"
+        # },
+        # {
+        #     "id": 2,
+        #     "name": "car"
+        # },
+        # {
+        #     "id": 3,
+        #     "name": "ship"
+        # },
+        # {
+        #     "id": 4,
+        #     "name": "plane"
+        # },
+        # {
+        #     "id": 5,
+        #     "name": "truck"
+        # },
+        # {
+        #     "id": 6,
+        #     "name": "van"
+        # },
+        # {
+        #     "id": 7,
+        #     "name": "bus"
+        # },
+        # {
+        #     "id": 8,
+        #     "name": "motor"
+        # },
+        # {
+        #     "id": 9,
+        #     "name": "bicycle"
+        # },
+        # {
+        #     "id": 10,
+        #     "name": "tricycle"
+        # }

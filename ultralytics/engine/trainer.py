@@ -251,6 +251,12 @@ class BaseTrainer:
         freeze_layer_names = [f"model.{x}." for x in freeze_list] + always_freeze_names
         self.freeze_layer_names = freeze_layer_names
         for k, v in self.model.named_parameters():
+            # 自定义：始终冻结所有 conv1x1_sbx/sby/lpl.mask 参数
+            if any(x in k for x in ["conv1x1_sbx.mask", "conv1x1_sby.mask", "conv1x1_lpl.mask"]):
+                if v.requires_grad:
+                    LOGGER.warning(f"Custom freeze: setting 'requires_grad=False' for layer '{k}'.")
+                v.requires_grad = False
+                continue
             # v.register_hook(lambda x: torch.nan_to_num(x))  # NaN to 0 (commented for erratic training results)
             if any(x in k for x in freeze_layer_names):
                 LOGGER.info(f"Freezing layer '{k}'")

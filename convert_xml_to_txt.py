@@ -4,6 +4,7 @@ import os
 
 def convert_coordinates(size, box):
     """将 (xmin, xmax, ymin, ymax) 转换为归一化的 (x_center, y_center, width, height)"""
+    box = list(box)  # 新增：将元组转为列表
     box[0] = max(0, min(box[0], size[0]))  # 确保 xmin 不小于0且不大于图像宽度
     box[1] = max(0, min(box[1], size[0]))  # 确保 xmax 不小于0且不大于图像宽度
     box[2] = max(0, min(box[2], size[1]))  # 确保 ymin 不小于0且不大于图像高度
@@ -19,13 +20,11 @@ def convert_coordinates(size, box):
     
     return (x_center, y_center, width, height)
 
-def convert_xml_to_txt(xml_dir, txt_dir):
+def convert_xml_to_txt(xml_dir, txt_dir, class_to_id_map):
     """将指定目录下的 XML 文件转换为 TXT 文件"""
     if not os.path.exists(txt_dir):
         os.makedirs(txt_dir)
 
-    class_to_id_map = {}  # 用于存储类别名称到ID的映射
-    next_class_id = 0     #下一个可用的类别ID
 
     # 获取所有XML文件列表，确保处理顺序一致性（可选，但有助于调试）
     xml_files = sorted([f for f in os.listdir(xml_dir) if f.endswith('.xml')])
@@ -60,9 +59,8 @@ def convert_xml_to_txt(xml_dir, txt_dir):
                 for obj in root.findall('object'):
                     class_name = obj.find('name').text
                     
-                    if class_name not in class_to_id_map:
-                        class_to_id_map[class_name] = next_class_id
-                        next_class_id += 1
+                    if class_name not in class_to_id_map.keys():
+                        print(class_name, " error !!!!!!!!!!!!!!")
                     class_id = class_to_id_map[class_name]
                     
                     bndbox = obj.find('bndbox')
@@ -93,10 +91,24 @@ def convert_xml_to_txt(xml_dir, txt_dir):
     return class_to_id_map
 
 if __name__ == '__main__':
+    # 根据test.json
+    class_to_id_map = {
+        "person": 0,
+        "car": 1,
+        "ship": 2,
+        "plane": 3,
+        "truck": 4,
+        "van": 5,
+        "bus": 6,
+        "motor": 7,
+        "bicycle": 8,
+        "tricycle": 9
+    }
+    print(class_to_id_map.keys(), class_to_id_map.values())
     # 设置 XML 文件所在的目录和 TXT 文件要保存的目录
     # 注意：用户提供的路径是 F:\allcode\ultralytics\dataset\train\labels
     # 我们将 TXT 文件也保存在同一个目录下，或者可以指定一个新的目录
-    xml_input_dir = r'F:\allcode\ultralytics\datasets\qiyuan\train\labels'
+    xml_input_dir = r'/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/datasets/train/labels'
     txt_output_dir = xml_input_dir # 或者指定一个新的输出目录，例如 r'F:\allcode\ultralytics\dataset\train\labels_txt'
     
     # 如果输出目录与输入目录相同，并且希望在原XML旁边生成TXT，这是可以的。
@@ -104,26 +116,24 @@ if __name__ == '__main__':
     # txt_output_dir = os.path.join(os.path.dirname(xml_input_dir), 'labels_yolo')
 
     print(f"Starting conversion from XML in '{xml_input_dir}' to TXT in '{txt_output_dir}'...")
-    class_map = convert_xml_to_txt(xml_input_dir, txt_output_dir)
+    class_map = convert_xml_to_txt(xml_input_dir, txt_output_dir, class_to_id_map)
     print("Conversion process finished.")
     if class_map:
         print("\nGenerated Class to ID Mapping:")
         for name, id_val in class_map.items():
             print(f"  '{name}': {id_val}")
             
-#     Generated Class to ID Mapping:
-#   'car': 0
-#   'bus': 1
-#   'truck': 2
-#   'person': 3
-#   'van': 4
-#   'motor': 5
-#   'tricycle': 6
-#   'ship': 7
-#   'bicycle': 8
-#   'plane': 9
-
-# testid = {0:2,1:7,2:5,3:1,4:6,5:8,6:10,7:3,8:9,9:4}
+# Generated Class to ID Mapping:
+#   'person': 1
+#   'car': 2
+#   'ship': 3
+#   'plane': 4
+#   'truck': 5
+#   'van': 6
+#   'bus': 7
+#   'motor': 8
+#   'bicycle': 9
+#   'tricycle': 10
         # test
         # {
         #     "id": 1,

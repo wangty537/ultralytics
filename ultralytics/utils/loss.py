@@ -32,6 +32,13 @@ class VarifocalLoss(nn.Module):
 
     def forward(self, pred_score, gt_score, label):
         """Compute varifocal loss between predictions and ground truth."""
+        """
+        pred_score.sigmoid() 将模型预测分数转换为概率值，范围在 [0, 1] 之间。
+        .pow(self.gamma) 是聚焦操作，self.gamma 为聚焦参数。对于容易分类的负样本（预测概率接近 0），其权重会被显著降低；而对于难以分类的负样本（预测概率接近 1），权重相对较高。
+        self.alpha 是平衡因子，用于调整负样本在损失计算中的权重。
+
+        self.alpha * pred_score.sigmoid().pow(self.gamma)降低容易分类的负样本权重，避免大量负样本主导损失计算。
+        """
         weight = self.alpha * pred_score.sigmoid().pow(self.gamma) * (1 - label) + gt_score * label
         with autocast(enabled=False):
             loss = (
@@ -55,7 +62,7 @@ class FocalLoss(nn.Module):
         """Initialize FocalLoss class with no parameters."""
         super().__init__()
         self.gamma = gamma
-        self.alpha = torch.tensor(alpha)
+        self.alpha = torch.tensor(alpha) # 类别越小，设置alpha越大，类别越大，设置alpha越小。设置一个列表，每个元素对应一个类别。
 
     def forward(self, pred, label):
         """Calculate focal loss with modulating factors for class imbalance."""
@@ -202,6 +209,7 @@ class v8DetectionLoss:
 
         m = model.model[-1]  # Detect() module
         self.bce = nn.BCEWithLogitsLoss(reduction="none")
+        self.varifocal_loss = VarifocalLoss()
         self.hyp = h
         self.stride = m.stride  # model strides
         self.nc = m.nc  # number of classes

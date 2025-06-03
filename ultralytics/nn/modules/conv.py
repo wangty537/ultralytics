@@ -765,6 +765,12 @@ class CBAM(nn.Module):
         super().__init__()
         self.channel_attention = ChannelAttention(c1)
         self.spatial_attention = SpatialAttention(kernel_size)
+        self.c1 = c1
+    def forward(self, x):
+        
+        x = self.channel_attention(x)
+        x = self.spatial_attention(x)
+        return x
 
     def forward(self, x):
         """

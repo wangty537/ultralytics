@@ -2,11 +2,12 @@ import os
 import cv2
 import json
 import glob
+from tqdm import tqdm
 from ultralytics import YOLO
 
 def main():
     # 加载训练好的模型
-    model = YOLO("runs/detect/custom_train/weights/best.pt")
+    model = YOLO("/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/runs/train/qiyuan/train_yolo11l_640/weights/best.pt")
     
     # 从配置文件读取类别名称
     class_names = {
@@ -15,7 +16,7 @@ def main():
     }
     
     # 测试集图像路径
-    test_dir = "datasets/train_coco8/images/test"
+    test_dir = "/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/datasets/test/images"
     
     # 获取所有测试图像
     image_patterns = [
@@ -35,8 +36,8 @@ def main():
     detection_id = 0
     
     # 遍历每张测试图像
-    for img_path in test_images:
-        print(f"正在处理: {os.path.basename(img_path)}")
+    for img_path in tqdm(test_images):
+        #print(f"正在处理: {os.path.basename(img_path)}")
         
         # 读取图像
         img = cv2.imread(img_path)
@@ -119,8 +120,8 @@ def convert_to_competation_format():
     test_results["annotations"] = []
 
     for i, item in enumerate(data):
-        if i < 100:
-            plot_results(f'./datasets/train_coco8/images/test/{item["image_name"]}', f'./pred_imgs/test_results_competation_{i}.jpg', item['bbox'], item['score'], item['category'])
+        if i < 10:
+            plot_results(f'/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/datasets/test/images/{item["image_name"]}', f'.test_results_competation_{i}.jpg', item['bbox'], item['score'], item['category'])
         
         assert item['category'] in categories_map
         test_results["annotations"].append({
@@ -135,5 +136,5 @@ def convert_to_competation_format():
         json.dump(test_results, f)
 
 if __name__ == "__main__":
-    # main()
+    main()
     convert_to_competation_format()

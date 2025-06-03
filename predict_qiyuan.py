@@ -9,7 +9,9 @@ import gc
 
 # 1. 加载模型
 #model = YOLO("/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/runs/train/qiyuan/train_yolo11l_640/weights/best.pt")
-model=YOLO(r"E:\share\code\ultralytics_qiyuan\ultralytics\runs\train\qiyuan\train_yolo11m_6404\weights\best.pt")
+#model=YOLO(r"E:\share\code\ultralytics_qiyuan\ultralytics\runs\detect\train5\weights\best.pt")# yolo11n
+model=YOLO(r"E:\share\code\ultralytics_qiyuan\ultralytics\runs\detect\train8\weights\best.pt")# yolo11l
+
 
 # 2. 获取图片列表
 img_dir = "/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/datasets/test/images"
@@ -17,7 +19,7 @@ img_dir=r"E:\share\code\ultralytics_qiyuan\ultralytics\datasets\test\images"
 img_files = [os.path.join(img_dir, f) for f in os.listdir(img_dir) if f.lower().endswith(('.jpg', '.png', '.jpeg'))]#[:100]
 
 print("Found", len(img_files), "images in", img_dir)
-
+print(model.names)
 # 3. 预测并构建COCO格式
 coco = {
     "images": [],
@@ -80,6 +82,7 @@ name_to_id = {item["name"]: item["id"] for item in test_names}
 ann_id = 1
 img_id = 0
 # 使用 tqdm 显示进度条
+ind = 0
 for file in tqdm(img_files):
     img_id += 1
     img = cv2.imread(file)
@@ -100,7 +103,24 @@ for file in tqdm(img_files):
 
     
     result = results[0]
-
+    ind += 1
+    if ind < 100:
+        save_dir = "wuchen"
+        os.makedirs(save_dir, exist_ok=True)
+        # 保存画框后的图像
+        print("save < 100")
+        for box, score, cls in zip(result.boxes.xyxy, result.boxes.conf, result.boxes.cls):
+                x1, y1, x2, y2 = map(int, box.tolist())
+                class_name = model.names[int(cls)]
+                color = (0, 255, 0)
+                cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+                cv2.putText(img, class_name, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+           
+        save_path = os.path.join(save_dir, f".test_results_competation_{ind-1}.jpg")
+        cv2.imwrite(save_path, img)
+    else:
+        if ind == 100:
+            print('donot save')
     # annotations字段
     for box, score, cls in zip(result.boxes.xywh, result.boxes.conf, result.boxes.cls):
         #print(img_id, box, score, cls)
@@ -121,5 +141,5 @@ for file in tqdm(img_files):
 print("total bbox number:", ann_id)
 
 # 5. 保存为json
-with open("resultsyolo11m.json", "w") as f:
+with open("resultsyolo11l.json", "w") as f:
     json.dump(coco, f)

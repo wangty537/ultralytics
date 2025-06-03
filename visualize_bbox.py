@@ -121,7 +121,7 @@ def visualize_random_image_with_bbox(image_dir, label_dir, class_names=None, idx
 
 if __name__ == '__main__':
     # 用户指定的目录
-    base_data_dir = r'F:\allcode\ultralytics\datasets\qiyuan\train'
+    base_data_dir = r'E:\share\code\ultralytics_qiyuan\ultralytics\datasets\train'
     image_dir = os.path.join(base_data_dir, 'images')
     label_dir = os.path.join(base_data_dir, 'labels')
 
@@ -132,16 +132,18 @@ if __name__ == '__main__':
     # 示例：class_map = {'cat': 0, 'dog': 1} -> class_names = ['cat', 'dog'] (需要确保顺序正确)
     # 为了简单起见，这里暂时不使用 class_names，只显示ID
     # class_names_example = ['class0', 'class1', 'class2'] # 替换为您的实际类别名称
-    class_map =  {'car': 0,
-                    'bus': 1,
-                    'truck': 2,
-                    'person': 3,
-                    'van': 4,
-                    'motor': 5,
-                    'tricycle': 6,
-                    'ship': 7,
-                    'bicycle': 8,
-                    'plane': 9}
+    class_map = {
+        "person": 0,
+        "car": 1,
+        "ship": 2,
+        "plane": 3,
+        "truck": 4,
+        "van": 5,
+        "bus": 6,
+        "motor": 7,
+        "bicycle": 8,
+        "tricycle": 9
+    }
     class_names = list(class_map.keys())
     print(f"Class Names: {class_names}")
     if not os.path.exists(image_dir):

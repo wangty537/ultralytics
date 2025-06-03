@@ -1,0 +1,75 @@
+# Ultralytics YOLO11n with small object detection enhancements (Modified)
+# Parameters
+
+nc: 80  # number of classes
+scales: # model compound scaling constants, i.e. 'model=yolo11n.yaml' will call yolo11.yaml with scale 'n'
+  # [depth, width, max_channels]
+  # n: [1, 0.125, 1024] 
+  # s: [1, 0.25, 1024]
+  # m: [1, 0.5, 1024] 
+  # l: [1, 1, 1024] 
+  # x: [1, 2, 1024]
+
+
+# Backbone
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv3x3, [16, 3, 1]]  # 0-P1/2
+  - [-1, 1, Conv3x3, [32, 3, 1]]  # 1-P2/2 (stride修改为1)
+  - [-1, 1, nn.MaxPool2d, [2, 2]]  # 2-P2/4 (新增MaxPool2d)
+  - [-1, 1, C3, [32]]          # 3
+  - [-1, 1, Conv3x3, [64, 3, 1]] # 4-P3/4 (stride修改为1)
+  - [-1, 1, nn.MaxPool2d, [2, 2]]  # 5-P3/8 (新增MaxPool2d)
+  - [-1, 1, C3, [64]]         # 6
+  - [-1, 1, Conv3x3, [128, 3, 1]] # 7-P4/8 (stride修改为1)
+  - [-1, 1, nn.MaxPool2d, [2, 2]]  # 8-P4/16 (新增MaxPool2d)
+  - [-1, 1, C3, [128]]         # 9
+  - [-1, 1, Conv3x3, [256, 3, 1]] # 10-P5/16 (stride修改为1)
+  - [-1, 1, nn.MaxPool2d, [2, 2]]  # 11-P5/32 (新增MaxPool2d)
+  - [-1, 1, C3, [256]]         # 12
+  - [-1, 1, SPPF, [256, 5]]    # 13
+
+# Head
+head:
+  # Upsample and merge P5 -> P4
+  - [-1, 1, Conv, [128, 1, 1]]                    # 14
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]    # 15
+  - [[-1, 9], 1, Concat, [1]]                     # 16 (修改为连接索引9，原索引6)
+  - [-1, 1, C3, [128]]                     # 17
+  
+  # Upsample and merge P4 -> P3
+  - [-1, 1, Conv, [64, 1, 1]]                    # 18
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]    # 19
+  - [[-1, 6], 1, Concat, [1]]                     # 20 (修改为连接索引6，原索引4)
+  - [-1, 1, C3, [64]]                     # 21
+  - [-1, 1, CBAM, [64, 7]]                          # 22
+  
+  # Upsample and merge P3 -> P2
+  - [-1, 1, Conv, [32, 1, 1]]                     # 23
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]    # 24
+  - [[-1, 3], 1, Concat, [1]]                     # 25 (修改为连接索引3，原索引2)
+  - [-1, 1, C3, [32]]                      # 26
+  - [-1, 1, CBAM, [32, 7]]                           # 27
+  
+  # Downsample path P2 -> P3
+  - [-1, 1, Conv3x3, [32, 3, 1]]                    # 28 (stride修改为1)
+  - [-1, 1, nn.MaxPool2d, [2, 2]]                # 29 (新增MaxPool2d)
+  - [[-1, 22], 1, Concat, [1]]                   # 30
+  - [-1, 1, C3, [64]]                            # 31
+  
+  # Downsample path P3 -> P4
+  - [-1, 1, Conv3x3, [64, 3, 1]]                   # 32 (stride修改为1)
+  - [-1, 1, nn.MaxPool2d, [2, 2]]                # 33 (新增MaxPool2d)
+  - [[-1, 17], 1, Concat, [1]]                   # 34
+  - [-1, 1, C3, [128]]                            # 35
+  
+  # Downsample path P4 -> P5
+  - [-1, 1, Conv3x3, [128, 3, 1]]                   # 36 (stride修改为1)
+  - [-1, 1, nn.MaxPool2d, [2, 2]]                # 37 (新增MaxPool2d)
+  - [[-1, 13], 1, Concat, [1]]                   # 38
+  - [-1, 1, C3, [256]]                           # 39
+  
+  # Detection heads (修改连接索引)
+  - [[27, 31, 35, 39], 1, Detect, [nc]]  # Detect(P2, P3, P4, P5)
+
+  # 相比于yolo15将 Conv stride=2 替换为 conv stride=1 ，并新增MaxPool2d

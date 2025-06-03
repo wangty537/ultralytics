@@ -9,11 +9,11 @@ if __name__ == "__main__":
     print(torch.__version__)
     print(torchvision.__version__)
     print(torch.cuda.is_available())
-    model = YOLO("yolo11n.pt")
-    #model = YOLO("/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/runs/train/qiyuan/train_yolo11n/weights/last.pt")
+    #model = YOLO("yolo11n.pt")
+    model = YOLO("/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/runs/train/qiyuan/train_yolo11l_640/weights/best.pt")
     model.train(data=r"/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/ultralytics/cfg/datasets/qiyuan.yaml", 
-                # epochs=30,
-                # batch=8,
+                epochs=50,
+                batch=2,
                 # imgsz=640,
                 # workers=4,
                 # device=[0],

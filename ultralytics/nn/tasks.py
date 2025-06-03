@@ -41,6 +41,7 @@ from ultralytics.nn.modules import (
     Classify,
     Concat,
     Conv,
+    CBAM,
     Conv2,
     ConvTranspose,
     Detect,
@@ -154,7 +155,11 @@ class BaseModel(torch.nn.Module):
                 x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
             if profile:
                 self._profile_one_layer(m, x, dt)
+            
+            #print(m.type, x.shape if isinstance(x, torch.Tensor) else [x_.shape for x_ in x])
+            
             x = m(x)  # run
+            #print('out:',m.type, x.shape if isinstance(x, torch.Tensor) else [x_.shape for x_ in x])
             y.append(x if m.i in self.save else None)  # save output
             if visualize:
                 feature_visualization(x, m.type, m.i, save_dir=visualize)
@@ -1521,7 +1526,8 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             args = [*args[1:]]
         else:
             c2 = ch[f]
-
+        
+        # print(m, f" module args: {args}")  # 打印传递给  模块的参数
         m_ = torch.nn.Sequential(*(m(*args) for _ in range(n))) if n > 1 else m(*args)  # module
         t = str(m)[8:-2].replace("__main__.", "")  # module type
         m_.np = sum(x.numel() for x in m_.parameters())  # number params

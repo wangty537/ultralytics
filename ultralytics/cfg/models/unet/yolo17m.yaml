@@ -1,7 +1,7 @@
 # Ultralytics YOLO11n with small object detection enhancements (Modified)
 # Parameters
 
-nc: 80  # number of classes
+nc: 10  # number of classes
 scales: # model compound scaling constants, i.e. 'model=yolo11n.yaml' will call yolo11.yaml with scale 'n'
   # [depth, width, max_channels]
   # n: [1, 0.125, 1024] 

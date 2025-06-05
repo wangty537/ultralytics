@@ -3,36 +3,19 @@ from ultralytics import YOLO
 import cv2
 import math
 import time
-from time import sleep
-
-from load_head import load_pretrained_weights_head
 if __name__ == "__main__":
     import torch
     import torchvision
     print(torch.__version__)
     print(torchvision.__version__)
     print(torch.cuda.is_available())
-
-     # 加载新模型
-    model = YOLO("yolo18m.yaml") # 修改Conv类为原始的
-    # 加载pretrain权重
-    pretrain = torch.load("/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/runs/detect/yolo11m/train640/weights/best.pt")
-
-    print("Loading pretrain weights...")
-    load_pretrained_weights_head(model.model.model, pretrain["model"].model)
-    # 打印weights加载情况
-    print("Pretrained weights loaded successfully.")
-
-    # model = YOLO("yolomy11m.yaml") #yolomyrep11m 和 yolomy11m 完全一致，但是修改了Conv类
-    # state = torch.load("/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/runs/detect/yolo11m/train640/weights/best.pt")
-
-
-    project = "runs/detect/yolo18m"
+    model = YOLO("yolo11m.pt")
+    project = "runs/detect/yolo11m_visdrone"
     #model = YOLO("/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/runs/train/qiyuan/train_yolo11l_640/weights/best.pt")
-    model.train(data=r"/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/ultralytics/cfg/datasets/qiyuan.yaml", 
+    model.train(data=r"/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/ultralytics/cfg/datasets/VisDrone.yaml", 
                 epochs=100,
-                batch=4,
-                # imgsz=640,
+                # batch=2,
+                imgsz=640,
                 # workers=4,
                 # device=[0],
                 # patience=10,
@@ -65,8 +48,8 @@ if __name__ == "__main__":
                 # fliplr=0.5,
                 # bgr=0.1,
                 # mosaic=0.8,
-                # mixup=0.5,
-                # cutmix=0.5
+                # mixup=0.2,
+                # cutmix=0.2
                 )
                 
 
@@ -86,4 +69,3 @@ if __name__ == "__main__":
         name="val320",
         )
     print('###################################################### Val Done ######################################################')
-    # CUDA_VISIBLE_DEVICES=2 python train_qiyuan2.py

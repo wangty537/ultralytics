@@ -5,7 +5,7 @@ import math
 import time
 from time import sleep
 
-from load_head import load_pretrained_weights_head
+from load_repbyconv import load_pretrained_weights
 if __name__ == "__main__":
     import torch
     import torchvision
@@ -14,12 +14,12 @@ if __name__ == "__main__":
     print(torch.cuda.is_available())
 
      # 加载新模型
-    model = YOLO("yolo18m.yaml") # 修改Conv类为原始的
+    model = YOLO("yolo11m.yaml") # 修改Conv类为rep
     # 加载pretrain权重
-    pretrain = torch.load("/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/runs/detect/yolo11m/train640/weights/best.pt")
+    pretrain = torch.load("yolo11m.pt")
 
     print("Loading pretrain weights...")
-    load_pretrained_weights_head(model.model.model, pretrain["model"].model)
+    load_pretrained_weights(model.model.model, pretrain["model"].model)
     # 打印weights加载情况
     print("Pretrained weights loaded successfully.")
 
@@ -27,11 +27,11 @@ if __name__ == "__main__":
     # state = torch.load("/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/runs/detect/yolo11m/train640/weights/best.pt")
 
 
-    project = "runs/detect/yolo18m"
+    project = "runs/detect/yolo11m_rep_coco"
     #model = YOLO("/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/runs/train/qiyuan/train_yolo11l_640/weights/best.pt")
-    model.train(data=r"/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/ultralytics/cfg/datasets/qiyuan.yaml", 
+    model.train(data="coco.yaml", 
                 epochs=100,
-                batch=4,
+                # batch=4,
                 # imgsz=640,
                 # workers=4,
                 # device=[0],

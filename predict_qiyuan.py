@@ -9,8 +9,9 @@ import gc
 
 # 1. 加载模型
 #model = YOLO("/home/redpine/share11/code/ultralytics_qiyuan/ultralytics/runs/train/qiyuan/train_yolo11l_640/weights/best.pt")
-#model=YOLO(r"E:\share\code\ultralytics_qiyuan\ultralytics\runs\detect\train5\weights\best.pt")# yolo11n
-model=YOLO(r"E:\share\code\ultralytics_qiyuan\ultralytics\runs\detect\train8\weights\best.pt")# yolo11l
+#model=YOLO(r"E:\share\code\ultralytics_qiyuan\ultralytics\runs\detect\yolo11n\weights\best.pt")# yolo11n
+model=YOLO(r"E:\share\code\ultralytics_qiyuan\ultralytics\runs\detect\yolo11l\weights\best.pt")# yolo11l
+model= YOLO(r'E:\share\code\ultralytics_qiyuan\ultralytics\runs\detect\yolo11m\train640\weights\best.pt') # yolo11m
 
 
 # 2. 获取图片列表
@@ -141,5 +142,5 @@ for file in tqdm(img_files):
 print("total bbox number:", ann_id)
 
 # 5. 保存为json
-with open("resultsyolo11l.json", "w") as f:
+with open("resultsyolo11m.json", "w") as f:   
     json.dump(coco, f)

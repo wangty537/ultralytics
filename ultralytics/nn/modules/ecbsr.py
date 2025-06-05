@@ -209,8 +209,10 @@ class ECB(nn.Module):
         super(ECB, self).__init__()
 
         self.depth_multiplier = depth_multiplier
-        self.inp_planes = inp_planes
-        self.out_planes = out_planes
+        self.in_channels = inp_planes
+        self.out_channels = out_planes
+        self.inp_planes = self.in_channels
+        self.out_planes = self.out_channels
         self.act_type = act_type
 
         if with_idt and (self.inp_planes == self.out_planes):
